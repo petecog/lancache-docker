@@ -1,0 +1,71 @@
+---
+version: "3"
+services:
+  pihole:
+    image: pihole/pihole:latest
+    restart: unless-stopped
+    environment:
+      TZ: 'Europe/London'
+      WEBPASSWORD: 'test'
+      PIHOLE_DNS_: 10.51.10.221
+    volumes:
+      - /home/peter/Downloads/docker/pihole/etc-pihole/:/etc/pihole
+      - /home/peter/Downloads/docker/pihole/etc-dnsmasq.d/:/etc/dnsmasq.d/
+      - /home/peter/Downloads/docker/pihole/var-log/:/var/log/
+    networks:
+      myvlan:
+        ipv4_address: 10.51.10.220
+        
+  dns:
+    image: lancachenet/lancache-dns:latest
+    restart: unless-stopped
+    environment:
+      TZ: 'Europe/London'
+      UPSTREAM_DNS: 1.1.1.1
+      CACHE_DOMAINS_BRANCH: master
+      CACHE_DOMAINS_REPO: https://github.com/petecog/cache-domains.git
+      LANCACHE_IP: 10.51.10.222
+      USE_GENERIC_CACHE: 'true'
+      DNS_BIND_IP: 10.51.10.221
+    networks:
+      myvlan:
+        ipv4_address: 10.51.10.221
+
+  monolithic:
+    image: lancachenet/monolithic:latest
+    restart: unless-stopped
+    environment:
+      TZ: 'Europe/London'
+      CACHE_DOMAINS_BRANCH: master
+      CACHE_DOMAINS_REPO: https://github.com/petecog/cache-domains.git
+      UPSTREAM_DNS: 1.1.1.1
+      CACHE_MEM_SIZE: 500m
+      CACHE_DISK_SIZE: 1000000m
+      CACHE_MAX_AGE: 3560d
+    volumes:
+      - /home/peter/Downloads/docker/lancache/cache:/data/cache
+      - /home/peter/Downloads/docker/lancache/logs:/data/logs
+    networks:
+      myvlan:
+        ipv4_address: 10.51.10.222
+
+  test:
+    image: ianneub/network-tools
+    restart: unless-stopped
+    networks:
+      myvlan:
+        ipv4_address: 10.51.10.225
+    dns:
+      - 10.51.10.220
+    tty: true
+   
+networks:
+    myvlan:
+        driver: macvlan
+        driver_opts: 
+          parent: enp10s0
+        ipam:
+            driver: default
+            config:
+                - subnet: 10.51.10.0/24
+                  gateway: 10.51.10.1
